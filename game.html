@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi TicTacToe Game</title>
+    <style>
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-template-rows: repeat(3, 100px);
+            gap: 5px;
+        }
+        .cell {
+            width: 100px;
+            height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            border: 1px solid #000;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>Welcome to the Game</h1>
+    <button id="findPlayer">Find Player</button>
+    <div class="board">
+        <div class="cell" id="cell-0"></div>
+        <div class="cell" id="cell-1"></div>
+        <div class="cell" id="cell-2"></div>
+        <div class="cell" id="cell-3"></div>
+        <div class="cell" id="cell-4"></div>
+        <div class="cell" id="cell-5"></div>
+        <div class="cell" id="cell-6"></div>
+        <div class="cell" id="cell-7"></div>
+        <div class="cell" id="cell-8"></div>
+    </div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let playerName = '';
+
+        document.getElementById('findPlayer').addEventListener('click', () => {
+            playerName = prompt('Enter your name:');
+            socket.emit('find', { name: playerName });
+        });
+
+        socket.on('playing', (game) => {
+            const { p1, p2, sum } = game;
+            const cells = document.querySelectorAll('.cell');
+
+            cells.forEach(cell => {
+                cell.innerText = '';
+                cell.style.pointerEvents = 'none';
+            });
+
+            if (p1.p1move) {
+                document.getElementById(`cell-${p1.p1move}`).innerText = 'X';
+            }
+            if (p2.p2move) {
+                document.getElementById(`cell-${p2.p2move}`).innerText = 'O';
+            }
+
+            if (playerName === p1.p1name || playerName === p2.p2name) {
+                cells.forEach(cell => {
+                    if (!cell.innerText) {
+                        cell.style.pointerEvents = 'auto';
+                        cell.addEventListener('click', () => {
+                            const move = cell.id.split('-')[1];
+                            const moveValue = parseInt(move) + 1;
+                            socket.emit('move', { name: playerName, move, moveValue });
+                        }, { once: true });
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>
