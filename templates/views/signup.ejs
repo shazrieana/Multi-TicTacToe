@@ -1,55 +1,3 @@
-<!--<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multi TicTacToe - Sign Up</title>
-    <link href="https://fonts.googleapis.com/css2?family=Tilt+Warp&display=swap" rel="stylesheet">
-    <style>
-        * { margin: 0; padding: 0; }
-        body { background-color: rgb(255, 255, 255); display: grid; place-items: center; font-family: 'Tilt Warp', cursive; }
-        h1 { margin: 50px 0 50px 0; font-size: 5rem; color: rgb(32, 55, 183); -webkit-text-stroke: .5px black; }
-        h2 { display: flex; flex-direction: column; align-items: center; }
-        form { display: flex; flex-direction: column; align-items: center; }
-        input { margin-bottom: 20px; padding: 5px; font-size: 1.2rem; }
-        button { font-size: 1.2rem; margin-bottom: 10px; }
-    </style>
-</head>
-<body>
-    <h1>TicTacToe</h1>
-    <div class = "form-container">
-        <h2>Signup</h2>
-        <br>
-        <form action="/signup" method="post">
-            <div class = "form-group">  
-                <label for="username">Username:</label>
-                <input type="text" id="username" name="username" placeholder = "Enter Your Name" required autocomplete="off">
-            </div>
-            <div class = "form-group">    
-                <label for="password">Password:</label>
-                <input type="password" id="password" name="password" placeholder = "Enter Your Password" required>
-            </div>    
-                <button type="submit" class = "submit-btn">Signup</button>
-        </form>
-    </div>
-    <script>
-        document.getElementById('signupForm').addEventListener('submit', function(event) {
-            const password = document.getElementById('password').value;
-            const passwordError = document.getElementById('passwordError');
-            const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-
-            if (!passwordRegex.test(password)) {
-                passwordError.textContent = 'Password must be at least 8 characters long and include at least one uppercase letter, one lowercase letter, one number, and one special character.';
-                event.preventDefault(); // Prevent form submission
-            } else {
-                passwordError.textContent = ''; // Clear the error message
-            }
-        });
-    </script>
-</body>
-</html>-->
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -64,8 +12,14 @@
         h1 { margin: 50px 0 50px 0; font-size: 5rem; color: rgb(32, 55, 183); -webkit-text-stroke: .5px black; }
         h2 { display: flex; flex-direction: column; align-items: center; }
         form { display: flex; flex-direction: column; align-items: center; }
-        input { margin-bottom: 20px; padding: 5px; font-size: 1.2rem; }
+        .form-group { position: relative; margin-bottom: 20px; }
+        input { padding: 5px; font-size: 1.2rem; }
         button { font-size: 1.2rem; margin-bottom: 10px; }
+        .password-conditions { display: none; position: absolute; top: 0; left: 105%; width: 200px; padding: 10px; border: 1px solid #ccc; background-color: #f9f9f9; }
+        .password-conditions span { display: block; }
+        .valid { color: green; }
+        .invalid { color: red; }
+        .error { color: red; margin-bottom: 20px; }
     </style>
 </head>
 <body>
@@ -76,21 +30,114 @@
         <form id="signupForm" action="/signup" method="post">
             <div class="form-group">  
                 <label for="username">Username:</label>
+                <br>
                 <input type="text" id="username" name="username" placeholder="Enter Your Name" required autocomplete="off">
             </div>
             <div class="form-group">    
                 <label for="password">Password:</label>
+                <br>
                 <input type="password" id="password" name="password" placeholder="Enter Your Password" required>
+                <div class="password-conditions" id="passwordConditions">
+                    <span id="length" class="invalid">At least 8 characters</span>
+                    <span id="uppercase" class="invalid">At least one uppercase letter</span>
+                    <span id="lowercase" class="invalid">At least one lowercase letter</span>
+                    <span id="number" class="invalid">At least one number</span>
+                    <span id="special" class="invalid">At least one special character</span>
+                </div>
+            </div>
+            <div class="form-group">    
+                <label for="confirmPassword">Confirm Password:</label>
+                <br>
+                
+                <input type="password" id="confirmPassword" name="confirmPassword" placeholder="Retype Your Password" required>
+                <div id="passwordMatchError" class="error"></div>
             </div>    
             <button type="submit" class="submit-btn">Signup</button>
         </form>
     </div>
     <script>
+        const passwordInput = document.getElementById('password');
+        const confirmPasswordInput = document.getElementById('confirmPassword');
+        const passwordConditions = document.getElementById('passwordConditions');
+        const passwordMatchError = document.getElementById('passwordMatchError');
+        const lengthCondition = document.getElementById('length');
+        const uppercaseCondition = document.getElementById('uppercase');
+        const lowercaseCondition = document.getElementById('lowercase');
+        const numberCondition = document.getElementById('number');
+        const specialCondition = document.getElementById('special');
+
+        passwordInput.addEventListener('focus', function() {
+            passwordConditions.style.display = 'block';
+        });
+
+        passwordInput.addEventListener('blur', function() {
+            if (passwordInput.value === '') {
+                passwordConditions.style.display = 'none';
+            }
+        });
+
+        passwordInput.addEventListener('input', function() {
+            const password = passwordInput.value;
+
+            // Check length
+            if (password.length >= 8) {
+                lengthCondition.classList.remove('invalid');
+                lengthCondition.classList.add('valid');
+            } else {
+                lengthCondition.classList.remove('valid');
+                lengthCondition.classList.add('invalid');
+            }
+
+            // Check uppercase
+            if (/[A-Z]/.test(password)) {
+                uppercaseCondition.classList.remove('invalid');
+                uppercaseCondition.classList.add('valid');
+            } else {
+                uppercaseCondition.classList.remove('valid');
+                uppercaseCondition.classList.add('invalid');
+            }
+
+            // Check lowercase
+            if (/[a-z]/.test(password)) {
+                lowercaseCondition.classList.remove('invalid');
+                lowercaseCondition.classList.add('valid');
+            } else {
+                lowercaseCondition.classList.remove('valid');
+                lowercaseCondition.classList.add('invalid');
+            }
+
+            // Check number
+            if (/\d/.test(password)) {
+                numberCondition.classList.remove('invalid');
+                numberCondition.classList.add('valid');
+            } else {
+                numberCondition.classList.remove('valid');
+                numberCondition.classList.add('invalid');
+            }
+
+            // Check special character
+            if (/[@$!%*?&]/.test(password)) {
+                specialCondition.classList.remove('invalid');
+                specialCondition.classList.add('valid');
+            } else {
+                specialCondition.classList.remove('valid');
+                specialCondition.classList.add('invalid');
+            }
+        });
+
         document.getElementById('signupForm').addEventListener('submit', async function(event) {
             event.preventDefault();
             const form = event.target;
             const formData = new FormData(form);
             const data = Object.fromEntries(formData.entries());
+
+            // Check if passwords match
+            if (data.password !== data.confirmPassword) {
+                passwordMatchError.textContent = 'Passwords do not match.';
+                return;
+            } else {
+                passwordMatchError.textContent = '';
+            }
 
             const response = await fetch(form.action, {
                 method: form.method,
