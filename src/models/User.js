@@ -5,8 +5,9 @@ const UserSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     token: { type: String, required: true },
+    role: { type: String, enum: ['user', 'admin'], default: 'user' }
 });
 
 //const Collection = new mongoose.model("AuthCollection", UserSchema);
-
-module.exports = mongoose.model('User', UserSchema);
+const User = mongoose.model('User', UserSchema);
+module.exports = User;
