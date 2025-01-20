@@ -1,9 +1,10 @@
-<!DOCTYPE html>
+<!--<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Multi TicTacToe Game</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tilt+Warp&display=swap" rel="stylesheet">
     <style>
         .board {
             display: grid;
@@ -39,7 +40,7 @@
         <div class="cell" id="cell-8"></div>
     </div>
     <script src="/socket.io/socket.io.js"></script>
-    <script>
+    <!--<script>
         const socket = io();
         let playerName = '<%= username %>';
 
@@ -47,7 +48,7 @@
             socket.emit('find', { name: playerName });
         });
 
-        /*socket.on('playing', (game) => {
+        socket.on('playing', (game) => {
             const { p1, p2, sum } = game;
             const cells = document.querySelectorAll('.cell');
 
@@ -75,7 +76,8 @@
                     }
                 });
             }
-        });*/
+        });
+
         socket.on('playing', (gameObj) => {
             // Update the game board based on the gameObj
             console.log('Game started:', gameObj);
@@ -93,6 +95,250 @@
             const cell = document.getElementById(`cell-${data.move}`);
             cell.textContent = data.value;
         });
+    </script>
+    <script>
+        const socket = io();
+
+        // Emit find event when the user joins the game
+        socket.emit('find', { name: '<%= username %>' });
+
+        // Listen for the playing event to start the game
+        socket.on('playing', (gameObj) => {
+            console.log('Game started:', gameObj);
+            // Update the game board with the gameObj data
+        });
+
+        // Emit move event when the user makes a move
+        function makeMove(move) {
+            socket.emit('move', { name: '<%= username %>', move: move, moveValue: 1 }); // Example moveValue
+        }
+
+        // Listen for game updates
+        socket.on('playing', (gameObj) => {
+            console.log('Game updated:', gameObj);
+            // Update the game board with the gameObj data
+        });
+
+        // Listen for game over event
+        socket.on('gameOver', (e) => {
+            console.log('Game Over:', e);
+            // Handle game over logic
+        });
+    </script>
+
+</body>
+</html>-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi TicTacToe - Game</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tilt+Warp&display=swap" rel="stylesheet">
+    <style>
+        body { background-color: rgb(255, 255, 255); display: grid; place-items: center; font-family: 'Tilt Warp', cursive; }
+        h1 { margin: 50px 0 50px 0; font-size: 5rem; color: rgb(32, 183, 93); -webkit-text-stroke: .5px black; }
+        #board { display: grid; grid-template-columns: repeat(3, 100px); grid-template-rows: repeat(3, 100px); gap: 5px; }
+        .tile { display: flex; align-items: center; justify-content: center; font-size: 2rem; border: 1px solid black; cursor: pointer; }
+        .horizontal-line { border-bottom: 3px solid black; }
+        .vertical-line { border-right: 3px solid black; }
+        .winner { background-color: yellow; }
+        .hidden { display: none; }
+        #logout { margin-top: 20px; font-size: 1.2rem; padding: 10px 20px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>TicTacToe Game</h1>
+    <div id="usernames">
+        <span id="player1"></span> (X) vs <span id="player2"></span> (O)
+    </div>
+    <div id="turn" class="hidden">It's <span id="currentPlayer"></span>'s turn</div>
+    <div id="waiting" class="hidden">Waiting for another player...</div>
+    <div id="board" class="hidden"></div>
+    <button id="logout">Logout</button>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        var board;
+        var playerO = "O";
+        var playerX = "X";
+        var currPlayer;
+        var gameOver = false;
+        var playerSymbol;
+        const socket = io();
+
+        window.onload = function() {
+            setGame();
+            socket.emit('find', { name: '<%= username %>' });
+        }
+
+        function setGame() {
+            board = [
+                [' ', ' ', ' '],
+                [' ', ' ', ' '],
+                [' ', ' ', ' ']
+            ];
+
+            for (let r = 0; r < 3; r++) {
+                for (let c = 0; c < 3; c++) {
+                    let tile = document.createElement("div");
+                    tile.id = r.toString() + "-" + c.toString();
+                    tile.classList.add("tile");
+                    if (r == 0 || r == 1) {
+                        tile.classList.add("horizontal-line");
+                    }
+                    if (c == 0 || c == 1) {
+                        tile.classList.add("vertical-line");
+                    }
+                    tile.innerText = "";
+                    tile.addEventListener("click", function() {
+                        setTile(r, c);
+                    });
+                    document.getElementById("board").appendChild(tile);
+                }
+            }
+        }
+
+        function setTile(r, c) {
+            if (gameOver || board[r][c] != ' ' || currPlayer != '<%= username %>') {
+                return;
+            }
+
+            board[r][c] = playerSymbol; // mark the board
+            document.getElementById(r.toString() + "-" + c.toString()).innerText = playerSymbol; // mark the board on html
+
+            // Emit move event when the user makes a move
+            socket.emit('move', { name: '<%= username %>', move: { r: r, c: c }, moveValue: playerSymbol });
+
+            // check winner
+            checkWinner();
+        }
+
+        function checkWinner() {
+            // horizontally, check 3 rows
+            for (let r = 0; r < 3; r++) {
+                if (board[r][0] == board[r][1] && board[r][1] == board[r][2] && board[r][0] != ' ') {
+                    // if we found the winning row
+                    // apply the winner style to that row
+                    for (let i = 0; i < 3; i++) {
+                        let tile = document.getElementById(r.toString() + "-" + i.toString());
+                        tile.classList.add("winner");
+                    }
+                    gameOver = true;
+                    socket.emit('gameOver', { name: '<%= username %>', winner: currPlayer });
+                    return;
+                }
+            }
+
+            // vertically, check 3 columns
+            for (let c = 0; c < 3; c++) {
+                if (board[0][c] == board[1][c] && board[1][c] == board[2][c] && board[0][c] != ' ') {
+                    // if we found the winning col
+                    // apply the winner style to that col
+                    for (let i = 0; i < 3; i++) {
+                        let tile = document.getElementById(i.toString() + "-" + c.toString());
+                        tile.classList.add("winner");
+                    }
+                    gameOver = true;
+                    socket.emit('gameOver', { name: '<%= username %>', winner: currPlayer });
+                    return;
+                }
+            }
+
+            // diagonally
+            if (board[0][0] == board[1][1] && board[1][1] == board[2][2] && board[0][0] != ' ') {
+                for (let i = 0; i < 3; i++) {
+                    let tile = document.getElementById(i.toString() + "-" + i.toString());
+                    tile.classList.add("winner");
+                }
+                gameOver = true;
+                socket.emit('gameOver', { name: '<%= username %>', winner: currPlayer });
+                return;
+            }
+
+            // anti-diagonally
+            if (board[0][2] == board[1][1] && board[1][1] == board[2][0] && board[0][2] != ' ') {
+                // 0-2
+                let tile = document.getElementById("0-2");
+                tile.classList.add("winner");
+
+                // 1-1
+                tile = document.getElementById("1-1");
+                tile.classList.add("winner");
+
+                // 2-0
+                tile = document.getElementById("2-0");
+                tile.classList.add("winner");
+                gameOver = true;
+                socket.emit('gameOver', { name: '<%= username %>', winner: currPlayer });
+                return;
+            }
+
+            // Check for tie
+            if (board.flat().every(cell => cell != ' ')) {
+                gameOver = true;
+                socket.emit('gameOver', { name: '<%= username %>', winner: null });
+                return;
+            }
+        }
+
+        // Listen for game updates
+        socket.on('playing', (gameObj) => {
+            console.log('Game updated:', gameObj);
+            // Update the game board with the gameObj data
+            updateBoard(gameObj.p1.p1move, gameObj.p1.p1value);
+            updateBoard(gameObj.p2.p2move, gameObj.p2.p2value);
+            currPlayer = gameObj.sum % 2 === 0 ? gameObj.p1.p1name : gameObj.p2.p2name;
+            playerSymbol = gameObj.p1.p1name === '<%= username %>' ? gameObj.p1.p1value : gameObj.p2.p2value;
+
+            // Update player names
+            document.getElementById('player1').innerText = gameObj.p1.p1name;
+            document.getElementById('player2').innerText = gameObj.p2.p2name;
+
+            // Update current player turn
+            document.getElementById('currentPlayer').innerText = currPlayer;
+
+            // Show the game board and hide the waiting message
+            document.getElementById('board').classList.remove('hidden');
+            document.getElementById('waiting').classList.add('hidden');
+            document.getElementById('turn').classList.remove('hidden');
+        });
+
+        function updateBoard(move, player) {
+            if (move) {
+                const { r, c } = move;
+                board[r][c] = player;
+                document.getElementById(r.toString() + "-" + c.toString()).innerText = player;
+            }
+        }
+
+        // Listen for game over event
+        socket.on('gameOver', (data) => {
+            console.log('Game Over:', data);
+            gameOver = true;
+            if (data.winner) {
+                if (data.winner === '<%= username %>') {
+                    alert('You win!');
+                } else {
+                    alert('You lose! ' + data.winner + ' wins!');
+                }
+            } else {
+                alert('It\'s a tie!');
+            }
+        });
+
+        // Handle logout
+        document.getElementById('logout').addEventListener('click', async () => {
+            const response = await fetch('/logout', {
+                method: 'GET',
+            });
+            if (response.ok) {
+                window.location.href = '/login';
+            }
+        });
+
+        // Show waiting message initially
+        document.getElementById('waiting').classList.remove('hidden');
     </script>
 </body>
 </html>

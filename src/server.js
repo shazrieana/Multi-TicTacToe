@@ -165,7 +165,7 @@ app.get('/game', (req, res) => {
 
 // Serve index page
 app.get('/', (req, res) => {
-    if(req.cookie.jwt) {
+    if(req.cookies.jwt) {
         try {
         //const verify = jwt.verify(req.cookies.jwt, "namasayanurulshazrieanabintimadsaidsayaberumur23tahun");
         const verify = jwt.verify(req.cookies.jwt, process.env.JWT_SECRET || "namasayanurulshazrieanabintimadsaidsayaberumur23tahun");
@@ -176,10 +176,10 @@ app.get('/', (req, res) => {
     }
     } catch (error) {
         res.clearCookie('jwt');
-        res.render('index');
+        res.render('login');
     }
     }else{
-        res.render('index');
+        res.render('login');
     }
     //res.sendFile(path.resolve('index.html'));
 });
@@ -253,22 +253,24 @@ app.delete("/api/users/:id", isAdmin, async (req, res) => {
     }
 });
 
-let arr = [];
+let waitingPlayer = null;
 let playingArray = [];
 
 // Socket.IO connection
 io.on("connection", (socket) => {
     socket.on("find", (e) => {
         if (e.name != null) {
-            arr.push(e.name);
-            if (arr.length >= 2) {
+            if (waitingPlayer == null) {
+                waitingPlayer = { name: e.name, socket: socket };
+                socket.emit("waiting", { message: "Waiting for another player..." });
+            } else {
                 let p1obj = {
-                    p1name: arr[0],
+                    p1name: waitingPlayer.name,
                     p1value: "X",
                     p1move: ""
                 };
                 let p2obj = {
-                    p2name: arr[1],
+                    p2name: e.name,
                     p2value: "O",
                     p2move: ""
                 };
@@ -276,11 +278,12 @@ io.on("connection", (socket) => {
                     p1: p1obj,
                     p2: p2obj,
                     sum: 0,
-                    allPlayers: arr
+                    allPlayers: [waitingPlayer.name, e.name]
                 };
                 playingArray.push(gameObj);
-                io.emit("playing", gameObj);
-                arr = []; // Reset the array for the next game
+                waitingPlayer.socket.emit("playing", gameObj);
+                socket.emit("playing", gameObj);
+                waitingPlayer = null; // Reset the waiting player
             }
         }
     });
@@ -293,15 +296,16 @@ io.on("connection", (socket) => {
             } else {
                 game.p2.p2move = data.move;
             }
-            game.sum += data.moveValue;
+            game.sum += 1;
             io.emit("playing", game);
         }
     });
 
-    socket.on("gameOver", (e) => {
-        playingArray = playingArray.filter(obj => obj.p1.p1name !== e.name);
+    socket.on("gameOver", (data) => {
+        playingArray = playingArray.filter(obj => obj.p1.p1name !== data.name && obj.p2.p2name !== data.name);
         console.log(playingArray);
         console.log("Game Over");
+        io.emit("gameOver", data);
     });
 });
 
