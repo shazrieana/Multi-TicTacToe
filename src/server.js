@@ -74,6 +74,23 @@ function isAdmin(req, res, next) {
     return res.status(403).send('Access denied');
 }
 
+// Middleware to verify JWT token
+function authenticateToken(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    if (token == null) return res.sendStatus(401);
+
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+        if (err) return res.sendStatus(403);
+        req.user = user;
+        next();
+    });
+}
+
+// Protected endpoint
+app.get('/protected-route', authenticateToken, (req, res) => {
+    res.json({ message: 'This is a protected route', user: req.user });
+});
 
 // User signup route
 app.post('/signup', async (req, res) => {
@@ -94,8 +111,8 @@ app.post('/signup', async (req, res) => {
         const token = jwt.sign({ username: req.body.username, role: role }, process.env.JWT_SECRET, { expiresIn: '10m' });
 
         res.cookie("jwt", token, {
-            maxAge: 600000, // cookie dia tahan 10 minutes
-            httpOnly: true // cookie takleh diakses melalui javascript
+            maxAge: 600000, // token dia tahan 10 minutes
+            httpOnly: true //  takleh diakses melalui javascript
             
         })
 
