@@ -58,30 +58,22 @@ app.use(session({
     saveUninitialized: true
 }));
 
-// Middleware to check if the user is an admin
+// Middleware to check if user is admin
 function isAdmin(req, res, next) {
-    if (req.cookies.jwt) {
-        try {
-            const verify = jwt.verify(req.cookies.jwt, process.env.JWT_SECRET);
-            if (verify.role === 'admin') {
-                req.user = verify;
-                return next();
-            }
-        } catch (error) {
-            res.clearCookie("jwt");
-        }
+    if (req.user && req.user.role === 'admin') {
+        next();
+    } else {
+        res.status(403).json({ message: 'Access denied: Admins only' });
     }
-    return res.status(403).send('Access denied');
 }
 
 // Middleware to verify JWT token
 function authenticateToken(req, res, next) {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-    if (token == null) return res.sendStatus(401);
+    const token = req.cookies.jwt || req.headers['authorization']?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'Unauthorized' });
 
     jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-        if (err) return res.sendStatus(403);
+        if (err) return res.status(403).json({ message: 'Forbidden' });
         req.user = user;
         next();
     });
@@ -168,8 +160,12 @@ app.post('/login', async (req, res) => {
 
 // User logout route
 app.get('/logout', (req, res) => {
-    req.session.destroy();
-    res.redirect('/');
+    res.clearCookie('jwt');
+    if (req.headers['content-type'] === 'application/json') {
+        res.status(200).json({ message: 'Logged out successfully' });
+    } else {
+        res.redirect('/login');
+    }
 });
 
 // Serve game page
@@ -211,18 +207,13 @@ app.get('/login', (req, res) => {
     res.render('login');
 });
 
-// Get all users (example route)
-app.get("/getUsers", async (req, res) => {
-    try {
-        const users = await User.find({});
-        res.json(users);
-    } catch (err) {
-        res.status(500).json(err);
-    }
+// Serve admin page
+app.get('/admin', authenticateToken, isAdmin, (req, res) => {
+    res.render('admin', { username: req.user });
 });
 
-// Get all users (example route)
-app.get("/api/users", isAdmin, async (req, res) => {
+// Get all users (admin only)
+app.get("/api/users", authenticateToken, isAdmin, async (req, res) => {
     try {
         const users = await User.find({});
         res.json(users);
@@ -232,20 +223,21 @@ app.get("/api/users", isAdmin, async (req, res) => {
 });
 
 // Create a new user (admin only)
-app.post("/api/users", isAdmin, async (req, res) => {
+app.post("/api/users", authenticateToken, isAdmin, async (req, res) => {
     const { username, password, role } = req.body;
     try {
-        const hashedPassword = await hashPass(password);
-        const newUser = new User({ username, password: hashedPassword, role });
+        const hashedPassword = await bcryptjs.hash(password, 10);
+        const token = jwt.sign({ username, role }, process.env.JWT_SECRET, { expiresIn: '10m' });
+        const newUser = new User({ username, password: hashedPassword, role, token });
         await newUser.save();
-        res.status(201).json(newUser);
+        res.status(201).json({ message: 'User created successfully', newUser });
     } catch (err) {
-        res.status(400).json(err);
+        res.status(400).json({ message: 'Error creating user', err });
     }
 });
 
 // Update a user (admin only)
-app.put("/api/users/:id", isAdmin, async (req, res) => {
+app.put("/api/users/:id", authenticateToken, isAdmin, async (req, res) => {
     const { username, password, role } = req.body;
     try {
         const hashedPassword = password ? await hashPass(password) : undefined;
@@ -254,19 +246,23 @@ app.put("/api/users/:id", isAdmin, async (req, res) => {
             ...(hashedPassword && { password: hashedPassword }),
             role
         }, { new: true });
-        res.json(updatedUser);
+        res.json({ message: 'User updated successfully', updatedUser});
     } catch (err) {
-        res.status(400).json(err);
+        res.status(400).json({ message: 'Error updating user', err});
     }
 });
 
 // Delete a user (admin only)
-app.delete("/api/users/:id", isAdmin, async (req, res) => {
+app.delete("/api/users/:id", authenticateToken, isAdmin, async (req, res) => {
     try {
+        const user = await User.findById(req.params.id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
         await User.findByIdAndDelete(req.params.id);
-        res.status(204).send();
+        res.status(200).json({ message: 'User deleted successfully' });
     } catch (err) {
-        res.status(400).json(err);
+        res.status(400).json({ message: 'Error deleting user', err });
     }
 });
 
