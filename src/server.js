@@ -9,6 +9,8 @@ const bcryptjs = require('bcryptjs');
 const { Server } = require("socket.io");
 const bodyParser = require('body-parser');
 const session = require('express-session');
+const rateLimit = require('express-rate-limit');
+const validator = require('validator');
 const User = require('./models/User'); // Ensure this path is correct
 
 const app = express();
@@ -58,6 +60,23 @@ app.use(session({
     saveUninitialized: true
 }));
 
+// Rate limiting configuration for all requests
+const generalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // Limit each IP to 100 requests per windowMs
+    message: 'Too many requests from this IP, please try again after 15 minutes'
+});
+
+// Apply rate limiting to all requests
+app.use(generalLimiter);
+
+// Rate limiting configuration for signup and login routes
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5, // Limit each IP to 5 requests per windowMs
+    message: 'Too many attempts, please try again after 15 minutes'
+});
+
 // Middleware to check if user is admin
 function isAdmin(req, res, next) {
     if (req.user && req.user.role === 'admin') {
@@ -85,9 +104,16 @@ app.get('/protected-route', authenticateToken, (req, res) => {
 });
 
 // User signup route
-app.post('/signup', async (req, res) => {
-    const { username, password } = req.body;
+app.post('/signup', authLimiter, async (req, res) => {
+    let { username, password } = req.body;
     const role = 'user'; //Default role is user
+
+    // Sanitize input
+    username = validator.trim(username);
+    username = validator.escape(username);
+    password = validator.trim(password);
+
+    
     try {
         if (!validatePassword(password)) {
             return res.status(400).json({message: 'Password must be at least 8 characters long and include at least one uppercase letter, one lowercase letter, one number, and one special character.'});
@@ -115,6 +141,10 @@ app.post('/signup', async (req, res) => {
             role: role
         }
 
+        
+        const hashedPassword = await bcryptjs.hash(password, 10);
+        const newUser = new User({ username, password: hashedPassword, role, token });
+        await newUser.save();
         await User.insertMany(data);
 
         console.log('User created: ', data);
@@ -127,8 +157,15 @@ app.post('/signup', async (req, res) => {
 });
 
 // User login route
-app.post('/login', async (req, res) => {
-    const { username, password } = req.body;
+app.post('/login', authLimiter, async (req, res) => {
+    let { username, password } = req.body;
+
+    // Sanitize input
+    username = validator.trim(username);
+    username = validator.escape(username);
+    password = validator.trim(password);
+
+
     try {
         const check = await User.findOne({ username: req.body.username });
         if (!check) {
@@ -209,7 +246,7 @@ app.get('/login', (req, res) => {
 
 // Serve admin page
 app.get('/admin', authenticateToken, isAdmin, (req, res) => {
-    res.render('admin', { username: req.user });
+    res.render('admin', { username: req.user.username });
 });
 
 // Get all users (admin only)
