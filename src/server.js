@@ -103,53 +103,35 @@ app.get('/protected-route', authenticateToken, (req, res) => {
     res.json({ message: 'This is a protected route', user: req.user });
 });
 
-// User signup route
 app.post('/signup', authLimiter, async (req, res) => {
     let { username, password } = req.body;
-    const role = 'user'; //Default role is user
+    const role = 'user'; // Default role is user
 
     // Sanitize input
     username = validator.trim(username);
     username = validator.escape(username);
     password = validator.trim(password);
 
-    
     try {
         if (!validatePassword(password)) {
-            return res.status(400).json({message: 'Password must be at least 8 characters long and include at least one uppercase letter, one lowercase letter, one number, and one special character.'});
+            return res.status(400).json({ message: 'Password must be at least 8 characters long and include at least one uppercase letter, one lowercase letter, one number, and one special character.' });
         }
 
-        const check = await User.findOne({ username:req.body.username });
+        const check = await User.findOne({ username });
         if (check) {
-            //alert('Username already exists');
             return res.status(400).json({ message: 'Username already exists' });
         }
-        else {
-   
-        const token = jwt.sign({ username: req.body.username, role: role }, process.env.JWT_SECRET, { expiresIn: '10m' });
 
-        res.cookie("jwt", token, {
-            maxAge: 600000, // token dia tahan 10 minutes
-            httpOnly: true //  takleh diakses melalui javascript
-            
-        })
-
-        const data = {
-            username: req.body.username,
-            password: await hashPass(req.body.password),
-            token: token,
-            role: role
-        }
-
-        
         const hashedPassword = await bcryptjs.hash(password, 10);
+        const token = jwt.sign({ username, role }, process.env.JWT_SECRET, { expiresIn: '10m' });
         const newUser = new User({ username, password: hashedPassword, role, token });
+        
+        console.log('Saving new user...');
         await newUser.save();
-        await User.insertMany(data);
+        console.log('User saved successfully.');
 
-        console.log('User created: ', data);
-            res.status(200).json({ message: 'User created successfully', redirect: '/login' });
-        }
+        console.log('User created: ', { username, role, token });
+        res.status(200).json({ message: 'User created successfully', redirect: '/login' });
     } catch (error) {
         console.error('Error signing up:', error);
         res.status(400).json({ message: 'Error signing up' });
